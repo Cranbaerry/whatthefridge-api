@@ -3,18 +3,16 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use PHPSupabase\Service;
+use App\Http\Traits\SupabaseTrait;
 use \GuzzleHttp\Exception\RequestException;
 
 class AuthController extends Controller
 {
+    use SupabaseTrait;
     private $service;
     public function __construct()
     {
-        $this->service = new Service(
-            env('SUPABASE_ANON_KEY'),
-            env('SUPABASE_URL')
-        );        
+        $this->service = $this->initializeSupabaseService();
     }
 
     public function login(Request $request)
@@ -27,13 +25,30 @@ class AuthController extends Controller
             $data = $auth->data();
 
             if (isset($data->access_token)) {
-                $userData = $data->user; //get the user data
-                return response()->json(['user' => $userData, 'token' => $data->access_token], 200);
+                $userData = (array) $data->user;
+                return response()->json([
+                    'type' => 'success',
+                    'data' => [
+                        'token' => $data->access_token,
+                        'user' => $userData,
+                        'login' => true
+                    ]
+                ], 200);
             }
         } catch (RequestException $e) {
-            return response()->json(['error' => $auth->getError()], 401);
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $auth->getError()
+                ]
+            ], 401);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 401);
         }
     }
 
@@ -51,9 +66,83 @@ class AuthController extends Controller
                 return response()->json(['user' => $userData, 'token' => $data->access_token], 200);
             }
         } catch (RequestException $e) {
-            return response()->json(['error' => $auth->getError()], 401);
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $auth->getError()
+                ]
+            ], 401);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 401);
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 401);
+        }
+    }
+
+    public function logout(Request $request)
+    {
+        $auth = $this->service->createAuth();
+        $bearerToken = $request->bearerToken();
+
+        try {
+            $auth->logout($bearerToken);
+            return response()->json(['message' => 'Logout successfully'], 200);
+        } catch (RequestException $e) {
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $auth->getError()
+                ]
+            ], 401);
+        } catch (\Exception $e) {
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    public function getGoogleAuthUrlJson()
+    {
+        $url = $this->getGoogleAuthUrl();
+        return response()->json(['url' => $url], 200);
+    }
+
+    public function getDiscordAuthUrlJson()
+    {
+        $url = $this->getDiscordAuthUrl();
+        return response()->json(['url' => $url], 200);
+    }
+
+    public function getUserSession(Request $request)
+    {
+        $auth = $this->service->createAuth();
+        $bearerToken = $request->bearerToken();
+
+        try {
+            $data = $auth->getUser($bearerToken);
+            if ($data->aud !== 'authenticated')
+                throw new \Exception('Invalid token');
+            
+            return response()->json([
+                'type' => 'success',
+                'data' => [
+                    'token' => $bearerToken,
+                    'user' => $data,
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 500);
         }
     }
 }

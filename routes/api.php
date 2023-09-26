@@ -2,6 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\ValidateSupabaseToken;
+use App\Http\Controllers\AuthController;
+ 
 
 /*
 |--------------------------------------------------------------------------
@@ -14,7 +17,16 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::post('/auth/login', 'App\Http\Controllers\AuthController@login');
-Route::get('test', function () {
-    return response()->json(['foo' => 'bar']);
+
+// Route: /api/auth/xxx
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/google', [AuthController::class, 'getGoogleAuthUrlJson']);
+    Route::get('/discord', [AuthController::class, 'getDiscordAuthUrlJson']);
+    Route::get('/session', [AuthController::class, 'getUserSession']);
+
+    Route::middleware([ValidateSupabaseToken::class])->group(function () {
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/register', [AuthController::class, 'register']);
+    });
 });
