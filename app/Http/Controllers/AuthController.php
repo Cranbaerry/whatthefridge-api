@@ -113,13 +113,23 @@ class AuthController extends Controller
     public function getGoogleAuthUrlJson()
     {
         $url = $this->getGoogleAuthUrl();
-        return response()->json(['url' => $url], 200);
+        return response()->json([
+            'type' => 'redirect',
+            'data' => [
+                'url' => $url
+            ]
+        ], 200);
     }
 
     public function getDiscordAuthUrlJson()
     {
         $url = $this->getDiscordAuthUrl();
-        return response()->json(['url' => $url], 200);
+        return response()->json([
+            'type' => 'redirect',
+            'data' => [
+                'url' => $url
+            ]
+        ], 200);
     }
 
     public function getUserSession(Request $request)
