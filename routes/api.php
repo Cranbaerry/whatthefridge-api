@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\ValidateSupabaseToken;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RecipeController;
  
 
 /*
@@ -21,6 +22,7 @@ use App\Http\Controllers\AuthController;
 // Route: /api/auth/xxx
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
     Route::get('/google', [AuthController::class, 'getGoogleAuthUrlJson']);
     Route::get('/discord', [AuthController::class, 'getDiscordAuthUrlJson']);
     Route::get('/session', [AuthController::class, 'getUserSession']);
@@ -28,6 +30,14 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware([ValidateSupabaseToken::class])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
-        Route::post('/register', [AuthController::class, 'register']);
+
+        // Unfinished
+        Route::post('/save', [RecipeController::class, 'save']);
     });
+});
+
+Route::prefix('recipes')->group(function () {
+    Route::get('/favourites', [RecipeController::class, 'getFavourites']);
+    Route::post('/search', [RecipeController::class, 'search']);
+    Route::post('/save', [RecipeController::class, 'save']);
 });

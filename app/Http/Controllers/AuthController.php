@@ -60,11 +60,13 @@ class AuthController extends Controller
         try {
             $auth->createUserWithEmailAndPassword($credentials['email'], $credentials['password']);
             $data = $auth->data();
-
-            if (isset($data->access_token)) {
-                $userData = $data->user; //get the user data
-                return response()->json(['user' => $userData, 'token' => $data->access_token], 200);
-            }
+            return response()->json([
+                'type' => 'success',
+                'data' => [
+                    'user' => $data,
+                    'message' => 'Please check your email to confirm your account.',
+                ]
+            ], 200);
         } catch (RequestException $e) {
             return response()->json([
                 'type' => 'failure',
