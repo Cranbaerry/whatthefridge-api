@@ -24,6 +24,7 @@ Route::prefix('auth')->group(function () {
     Route::get('/google', [AuthController::class, 'getGoogleAuthUrlJson']);
     Route::get('/discord', [AuthController::class, 'getDiscordAuthUrlJson']);
     Route::get('/session', [AuthController::class, 'getUserSession']);
+    Route::post('/recover', [AuthController::class, 'recover']);
 
     Route::middleware([ValidateSupabaseToken::class])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);

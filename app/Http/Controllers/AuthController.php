@@ -88,8 +88,11 @@ class AuthController extends Controller
         $bearerToken = $request->bearerToken();
 
         try {
-            $auth->logout($bearerToken);
-            return response()->json(['message' => 'Logout successfully'], 200);
+            $response = $auth->logout($bearerToken);
+            return response()->json([
+                'type' => 'success',
+                'message' => $response,
+            ], 200);
         } catch (RequestException $e) {
             return response()->json([
                 'type' => 'failure',
@@ -128,7 +131,7 @@ class AuthController extends Controller
             $data = $auth->getUser($bearerToken);
             if ($data->aud !== 'authenticated')
                 throw new \Exception('Invalid token');
-            
+
             return response()->json([
                 'type' => 'success',
                 'data' => [
@@ -136,6 +139,30 @@ class AuthController extends Controller
                     'user' => $data,
                 ]
             ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    public function recover(Request $request)
+    {
+        $auth = $this->service->createAuth();
+
+        try {
+            $auth->recoverPassword($request->email);
+            return response()->json(['message' => 'Recovery email sent'], 200);
+        } catch (RequestException $e) {
+            return response()->json([
+                'type' => 'failure',
+                'data' => [
+                    'error' => $auth->getError()
+                ]
+            ], 401);
         } catch (\Exception $e) {
             return response()->json([
                 'type' => 'failure',
