@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Recipe;
 use Illuminate\Http\Request;
 use App\Models\RecipeDetail;
 use App\Models\Spoonacular;
@@ -21,18 +22,66 @@ class RecipeController extends Controller
         ], 200);
     }
 
-    public function getRecipeDetail(RecipeDetail $recipeDetail) {
+    public function getRecipeDetail(RecipeDetail $recipeDetail)
+    {
         dd($recipeDetail);
-    }    
+    }
 
     public function search(Request $request)
     {
-        return response()->json([
-            'type' => 'success',
-            'data' => [
-                'message' => 'RecipeController'
-            ]
-        ], 200);
+        if ($request->type === 'ingredients') {
+            if (!$request->has('ingredients')) {
+                return response()->json([
+                    'type' => 'failure',
+                    'data' => [
+                        'error' => 'Please enter at least one ingredient'
+                    ]
+                ], 401);
+            }
+
+            $recipes = Recipe::where([
+                'type' => $request->type,
+                'ingredients' => $request->ingredients
+            ])->get();
+
+            // TODO: Override likes with actual likes from DB
+            foreach ($recipes as $recipe) {
+                $recipe->likes = 0;
+            }
+
+            return response()->json([
+                'type' => 'success',
+                'data' => [
+                    'recipes' => $recipes,
+                ]
+            ], 200);
+        } else {
+            if (!$request->has('title') || $request->title === '') {
+                return response()->json([
+                    'type' => 'failure',
+                    'data' => [
+                        'error' => 'Please enter a keyword'
+                    ]
+                ], 401);
+            }
+
+            $recipes = Recipe::where([
+                'type' => $request->type,
+                'query' => $request->title
+            ])->get();
+
+            // TODO: Override likes with actual likes from DB
+            foreach ($recipes as $recipe) {
+                $recipe->likes = 0;
+            }
+
+            return response()->json([
+                'type' => 'success',
+                'data' => [
+                    'recipes' => $recipes['results'],
+                ]
+            ], 200);
+        }
     }
 
     public function save(Request $request)
