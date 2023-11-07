@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\ValidateSupabaseToken;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RecipeController;
- 
+use App\Models\RecipeDetail;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,7 +17,6 @@ use App\Http\Controllers\RecipeController;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
-
 
 // Route: /api/auth/xxx
 Route::prefix('auth')->group(function () {
@@ -40,4 +39,5 @@ Route::prefix('recipes')->group(function () {
     Route::get('/favourites', [RecipeController::class, 'getFavourites']);
     Route::post('/search', [RecipeController::class, 'search']);
     Route::post('/save', [RecipeController::class, 'save']);
+    Route::get('/detail/{recipeDetail}', [RecipeController::class, 'getRecipeDetail']);
 });

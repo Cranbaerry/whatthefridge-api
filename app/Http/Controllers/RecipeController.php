@@ -3,6 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\RecipeDetail;
+use App\Models\Spoonacular;
+use App\Wrappers\SpoonacularWrapper;
+use Cristal\ApiWrapper\Transports\Transport;
+use Curl\Curl;
 
 class RecipeController extends Controller
 {
@@ -15,6 +20,10 @@ class RecipeController extends Controller
             ]
         ], 200);
     }
+
+    public function getRecipeDetail(RecipeDetail $recipeDetail) {
+        dd($recipeDetail);
+    }    
 
     public function search(Request $request)
     {
