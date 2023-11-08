@@ -31,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+
         Spoonacular::setApi($this->app->make(SpoonacularWrapper::class));
         RecipeDetail::setApi($this->app->make(SpoonacularWrapper::class));
     }

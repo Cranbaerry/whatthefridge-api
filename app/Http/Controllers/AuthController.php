@@ -3,21 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Http\Traits\SupabaseTrait;
 use \GuzzleHttp\Exception\RequestException;
 
 class AuthController extends Controller
 {
-    use SupabaseTrait;
-    private $service;
-    public function __construct()
-    {
-        $this->service = $this->initializeSupabaseService();
-    }
-
     public function login(Request $request)
     {
-        $auth = $this->service->createAuth();
+        $auth = $this->supabaseService->createAuth();
         $credentials = $request->only('email', 'password');
 
         try {
@@ -54,7 +46,7 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $auth = $this->service->createAuth();
+        $auth = $this->supabaseService->createAuth();
         $credentials = $request->only('email', 'password');
 
         try {
@@ -86,7 +78,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $auth = $this->service->createAuth();
+        $auth = $this->supabaseService->createAuth();
         $bearerToken = $request->bearerToken();
 
         try {
@@ -136,7 +128,7 @@ class AuthController extends Controller
 
     public function getUserSession(Request $request)
     {
-        $auth = $this->service->createAuth();
+        $auth = $this->supabaseService->createAuth();
         $bearerToken = $request->bearerToken();
 
         try {
@@ -163,7 +155,7 @@ class AuthController extends Controller
 
     public function recover(Request $request)
     {
-        $auth = $this->service->createAuth();
+        $auth = $this->supabaseService->createAuth();
 
         try {
             $auth->recoverPassword($request->email);

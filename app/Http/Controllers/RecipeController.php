@@ -5,10 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Recipe;
 use Illuminate\Http\Request;
 use App\Models\RecipeDetail;
-use App\Models\Spoonacular;
-use App\Wrappers\SpoonacularWrapper;
-use Cristal\ApiWrapper\Transports\Transport;
-use Curl\Curl;
+use Exception;
 
 class RecipeController extends Controller
 {
@@ -27,60 +24,126 @@ class RecipeController extends Controller
         dd($recipeDetail);
     }
 
-    public function search(Request $request)
+    public function searchRecipes(Request $request)
     {
-        if ($request->type === 'ingredients') {
-            if (!$request->has('ingredients')) {
+        try {
+            $auth = $this->supabaseService->createAuth();
+            $bearerToken = $request->bearerToken();
+            $userData = $bearerToken === 'undefined' ? null : $auth->getUser($bearerToken);
+
+            if ($request->type === 'ingredients') {
+                if (!$request->has('ingredients')) {
+                    return response()->json([
+                        'type' => 'failure',
+                        'data' => [
+                            'error' => 'Please enter at least one ingredient'
+                        ]
+                    ], 401);
+                }
+
+                $recipes = Recipe::where([
+                    'type' => $request->type,
+                    'ingredients' => $request->ingredients
+                ])->get();
+
+                $recipes = $this->parseRecipeBookmarkState($recipes, $userData);
+
                 return response()->json([
-                    'type' => 'failure',
+                    'type' => 'success',
                     'data' => [
-                        'error' => 'Please enter at least one ingredient'
+                        'recipes' => $recipes,
                     ]
-                ], 401);
+                ], 200);
+            } else {
+                if (!$request->has('title') || $request->title === '') {
+                    return response()->json([
+                        'type' => 'failure',
+                        'data' => [
+                            'error' => 'Please enter a keyword'
+                        ]
+                    ], 401);
+                }
+
+                $recipes = Recipe::where([
+                    'type' => $request->type,
+                    'query' => $request->title
+                ])->get();
+
+                $recipes = $this->parseRecipeBookmarkState($recipes, $userData);
+
+                return response()->json([
+                    'type' => 'success',
+                    'data' => [
+                        'recipes' => $recipes,
+                    ]
+                ], 200);
             }
+        } catch (Exception $e) {
+            return response()->json([
+                'type' => 'error',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
 
-            $recipes = Recipe::where([
-                'type' => $request->type,
-                'ingredients' => $request->ingredients
-            ])->get();
+    private function parseRecipeBookmarkState($recipes, $userData) {
+        $db = $this->supabaseService->initializeDatabase('favourites', 'id');
+        foreach ($recipes as $recipe) {            
+            $query = [
+                'select' => '*',
+                'from'   => 'favourites',
+                'where' =>
+                [
+                    'recipe_id' => 'eq.' . $recipe->id
+                ]
+            ];
 
-            // TODO: Override likes with actual likes from DB
-            foreach ($recipes as $recipe) {
-                $recipe->likes = 0;
+            $result = $db->createCustomQuery($query)->getResult();                    
+            if ($userData !== null && $userData->aud === 'authenticated') {
+                foreach ($result as $data) {
+                    if ($userData->id === $data->user_id) {
+                        $recipe->isLiked = true;    
+                        break;
+                    }
+                }
             }
+ 
+            $recipe->totalLikes = count($result);
+        }
 
+        return $recipes;
+    }
+
+    public function getRecipeBookmarks(Request $request, $recipeId)
+    {
+        try {
+            $db = $this->supabaseService->initializeDatabase('favourites', 'id');
+            $query = [
+                'select' => '*',
+                'from'   => 'favourites',
+                'where' =>
+                [
+                    'recipe_id' => 'eq.' . $recipeId
+                ]
+            ];
+
+            $result = $db->createCustomQuery($query)->getResult();
             return response()->json([
                 'type' => 'success',
                 'data' => [
-                    'recipes' => $recipes,
+                    'count' => count($result),
+                    'rows' => $result
                 ]
             ], 200);
-        } else {
-            if (!$request->has('title') || $request->title === '') {
-                return response()->json([
-                    'type' => 'failure',
-                    'data' => [
-                        'error' => 'Please enter a keyword'
-                    ]
-                ], 401);
-            }
-
-            $recipes = Recipe::where([
-                'type' => $request->type,
-                'query' => $request->title
-            ])->get();
-
-            // TODO: Override likes with actual likes from DB
-            foreach ($recipes as $recipe) {
-                $recipe->likes = 0;
-            }
-
+        } catch (Exception $e) {
             return response()->json([
-                'type' => 'success',
+                'type' => 'error',
                 'data' => [
-                    'recipes' => $recipes['results'],
+                    'error' => $e->getMessage()
                 ]
-            ], 200);
+            ], 500);
         }
     }
 

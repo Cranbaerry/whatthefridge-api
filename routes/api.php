@@ -37,7 +37,8 @@ Route::prefix('auth')->group(function () {
 
 Route::prefix('recipes')->group(function () {
     Route::get('/favourites', [RecipeController::class, 'getFavourites']);
-    Route::post('/search', [RecipeController::class, 'search']);
+    Route::post('/search', [RecipeController::class, 'searchRecipes']);
     Route::post('/save', [RecipeController::class, 'save']);
     Route::get('/detail/{recipeDetail}', [RecipeController::class, 'getRecipeDetail']);
+    Route::get('/bookmarks/{recipeId}', [RecipeController::class, 'getRecipeBookmarks']);
 });

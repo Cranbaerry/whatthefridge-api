@@ -49,7 +49,7 @@ class SpoonacularWrapper extends Api
             $queryString['number'] = 20;
             $queryString['addRecipeInformation'] = true;
 
-            return $this->transport->request("recipes/complexSearch", $queryString);
+            return $this->transport->request("recipes/complexSearch", $queryString)['results'];
         } 
     }
 }
