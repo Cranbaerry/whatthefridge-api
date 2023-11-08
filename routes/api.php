@@ -29,16 +29,18 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware([ValidateSupabaseToken::class])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
-
-        // Unfinished
-        Route::post('/save', [RecipeController::class, 'save']);
     });
 });
 
 Route::prefix('recipes')->group(function () {
     Route::get('/favourites', [RecipeController::class, 'getFavourites']);
     Route::post('/search', [RecipeController::class, 'searchRecipes']);
-    Route::post('/save', [RecipeController::class, 'save']);
     Route::get('/detail/{recipeDetail}', [RecipeController::class, 'getRecipeDetail']);
-    Route::get('/bookmarks/{recipeId}', [RecipeController::class, 'getRecipeBookmarks']);
+
+    Route::middleware([ValidateSupabaseToken::class])->group(function () {
+        Route::put('/save/{recipeId}', [RecipeController::class, 'saveRecipe']);
+    });
+
+    // Rate limit: 120 requests per minute
+    Route::middleware('throttle:120,1')->get('/bookmarks/{recipeId}', [RecipeController::class, 'getRecipeBookmarks']);
 });

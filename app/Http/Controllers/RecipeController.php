@@ -6,6 +6,7 @@ use App\Models\Recipe;
 use Illuminate\Http\Request;
 use App\Models\RecipeDetail;
 use Exception;
+use stdClass;
 
 class RecipeController extends Controller
 {
@@ -46,7 +47,7 @@ class RecipeController extends Controller
                     'ingredients' => $request->ingredients
                 ])->get();
 
-                $recipes = $this->parseRecipeBookmarkState($recipes, $userData);
+                $recipes = $this->parseRecipesBookmarkState($recipes, $userData);
 
                 return response()->json([
                     'type' => 'success',
@@ -69,7 +70,7 @@ class RecipeController extends Controller
                     'query' => $request->title
                 ])->get();
 
-                $recipes = $this->parseRecipeBookmarkState($recipes, $userData);
+                $recipes = $this->parseRecipesBookmarkState($recipes, $userData);
 
                 return response()->json([
                     'type' => 'success',
@@ -88,32 +89,37 @@ class RecipeController extends Controller
         }
     }
 
-    private function parseRecipeBookmarkState($recipes, $userData) {
-        $db = $this->supabaseService->initializeDatabase('favourites', 'id');
+    private function parseRecipesBookmarkState($recipes, $userData) {        
         foreach ($recipes as $recipe) {            
-            $query = [
-                'select' => '*',
-                'from'   => 'favourites',
-                'where' =>
-                [
-                    'recipe_id' => 'eq.' . $recipe->id
-                ]
-            ];
-
-            $result = $db->createCustomQuery($query)->getResult();                    
-            if ($userData !== null && $userData->aud === 'authenticated') {
-                foreach ($result as $data) {
-                    if ($userData->id === $data->user_id) {
-                        $recipe->isLiked = true;    
-                        break;
-                    }
-                }
-            }
- 
-            $recipe->totalLikes = count($result);
+            $recipe = $this->parseRecipeBookmarkState($recipe, $userData);
         }
 
         return $recipes;
+    }
+
+    private function parseRecipeBookmarkState($recipe, $userData) {
+        $db = $this->supabaseService->initializeDatabase('favourites', 'id');
+        $query = [
+            'select' => '*',
+            'from'   => 'favourites',
+            'where' =>
+            [
+                'recipe_id' => 'eq.' . $recipe->id
+            ]
+        ];
+
+        $result = $db->createCustomQuery($query)->getResult();                    
+        if ($userData !== null && $userData->aud === 'authenticated') {
+            foreach ($result as $data) {
+                if ($userData->id === $data->user_id) {
+                    $recipe->bookmarked = true;    
+                    break;
+                }
+            }
+        }
+
+        $recipe->totalLikes = count($result);
+        return $recipe;
     }
 
     public function getRecipeBookmarks(Request $request, $recipeId)
@@ -147,13 +153,61 @@ class RecipeController extends Controller
         }
     }
 
-    public function save(Request $request)
+    public function saveRecipe(Request $request, $recipeId)
     {
-        return response()->json([
-            'type' => 'success',
-            'data' => [
-                'message' => 'RecipeController'
-            ]
-        ], 200);
+        try {
+            $auth = $this->supabaseService->createAuth();
+            $bearerToken = $request->bearerToken();
+            $userData = $bearerToken === 'undefined' ? null : $auth->getUser($bearerToken);
+                
+            if ($userData === null || $userData->aud !== 'authenticated') {
+                return response()->json([
+                    'type' => 'failure',
+                    'data' => [
+                        'error' => 'Please login to save recipes'
+                    ]
+                ], 401);
+            }
+
+            $db = $this->supabaseService->initializeDatabase('favourites', 'id');
+            $query = [
+                'select' => '*',
+                'from'   => 'favourites',
+                'where' =>
+                [                    
+                    'user_id' => 'eq.' . $userData->id,
+                    'recipe_id' => 'eq.' . $recipeId
+                ]
+            ];
+
+            $favourite = $db->createCustomQuery($query)->getResult();
+            if (count($favourite) > 0) {
+                $db->delete($favourite[0]->id);
+            } else {
+                $db->insert([
+                    'user_id' => $userData->id,
+                    'recipe_id' => $recipeId
+                ]);
+            }
+
+            $recipe = new Recipe();
+            $recipe->id = $recipeId;
+            $recipe->bookmarked = false;
+            $recipe->totalLikes = 0;
+            
+            return response()->json([
+                'type' => 'success',
+                'data' => [
+                    'recipe' => $this->parseRecipeBookmarkState($recipe, $userData)
+                ]
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'type' => 'error',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 500);
+        }
     }
 }
