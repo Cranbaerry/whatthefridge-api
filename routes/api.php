@@ -39,6 +39,7 @@ Route::prefix('recipes')->group(function () {
 
     Route::middleware([ValidateSupabaseToken::class])->group(function () {
         Route::put('/save/{recipeId}', [RecipeController::class, 'saveRecipe']);
+        Route::get('/saved', [RecipeController::class, 'getFavourites']);
     });
 
     // Rate limit: 120 requests per minute

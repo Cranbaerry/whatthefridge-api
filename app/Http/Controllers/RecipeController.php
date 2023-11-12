@@ -6,23 +6,17 @@ use App\Models\Recipe;
 use Illuminate\Http\Request;
 use App\Models\RecipeDetail;
 use Exception;
-use stdClass;
 
 class RecipeController extends Controller
 {
-    public function getFavourites()
+    public function getRecipeDetail(RecipeDetail $recipeDetail)
     {
         return response()->json([
             'type' => 'success',
             'data' => [
-                'message' => 'RecipeController'
+                'recipe' => $recipeDetail
             ]
         ], 200);
-    }
-
-    public function getRecipeDetail(RecipeDetail $recipeDetail)
-    {
-        dd($recipeDetail);
     }
 
     public function searchRecipes(Request $request)
@@ -107,28 +101,29 @@ class RecipeController extends Controller
 
         $result = $db->createCustomQuery($query)->getResult();
 
-        if ($userData !== null && $userData->aud === 'authenticated') {
-            // Convert $result to a map for faster lookup
-            $favouritesMap = [];
-            foreach ($result as $data) {
-                $favouritesMap[$data->recipe_id][$data->user_id] = true;
-            }
 
-            // Use array_reduce to calculate total likes
-            $totalLikesMap = array_reduce($result, function ($carry, $data) {
-                $carry[$data->recipe_id] = ($carry[$data->recipe_id] ?? 0) + 1;
-                return $carry;
-            }, []);
+        // Convert $result to a map for faster lookup
+        $favouritesMap = [];
+        foreach ($result as $data) {
+            $favouritesMap[$data->recipe_id][$data->user_id] = true;
+        }
 
-            foreach ($recipes as &$recipe) {
-                // Check if the recipe is bookmarked
+        // Use array_reduce to calculate total likes
+        $totalLikesMap = array_reduce($result, function ($carry, $data) {
+            $carry[$data->recipe_id] = ($carry[$data->recipe_id] ?? 0) + 1;
+            return $carry;
+        }, []);
+
+        foreach ($recipes as &$recipe) {
+            // Check if the recipe is bookmarked
+            if ($userData !== null && $userData->aud === 'authenticated') {
                 if (isset($favouritesMap[$recipe->id][$userData->id])) {
                     $recipe->bookmarked = true;
                 }
-
-                // Set total likes for the recipe
-                $recipe->totalLikes = $totalLikesMap[$recipe->id] ?? 0;
             }
+
+            // Set total likes for the recipe
+            $recipe->totalLikes = $totalLikesMap[$recipe->id] ?? 0;
         }
 
         return $recipes;
@@ -237,6 +232,60 @@ class RecipeController extends Controller
                 'type' => 'success',
                 'data' => [
                     'recipe' => $this->parseRecipeBookmarkState($recipe, $userData)
+                ]
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'type' => 'error',
+                'data' => [
+                    'error' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    public function getFavourites(Request $request)
+    {
+        try {
+            $auth = $this->supabaseService->createAuth();
+            $bearerToken = $request->bearerToken();
+            $userData = $bearerToken === 'undefined' ? null : $auth->getUser($bearerToken);
+
+            if ($userData === null || $userData->aud !== 'authenticated') {
+                return response()->json([
+                    'type' => 'failure',
+                    'data' => [
+                        'error' => 'Please login to save recipes'
+                    ]
+                ], 401);
+            }
+
+            $db = $this->supabaseService->initializeDatabase('favourites', 'id');
+            $query = [
+                'select' => '*',
+                'from'   => 'favourites',
+                'where' =>
+                [
+                    'user_id' => 'eq.' . $userData->id,
+                ]
+            ];
+
+            $result = $db->createCustomQuery($query)->getResult();
+            $ids = implode(',', array_map(function ($data) {
+                return $data->recipe_id;
+            }, $result));
+
+            $recipes = Recipe::where([
+                'type' => 'bulk',
+                'ids' => $ids
+            ])->get();
+
+            $recipes = $this->parseRecipesBookmarkState($recipes, $userData);
+
+            return response()->json([
+                'type' => 'success',
+                'data' => [
+                    'recipes' => $recipes
                 ]
             ], 200);
         } catch (Exception $e) {

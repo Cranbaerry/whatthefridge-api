@@ -43,6 +43,11 @@ class SpoonacularWrapper extends Api
             $queryString['ingredients'] = implode(',', $queryString['ingredients']);
 
             return $this->transport->request("recipes/findByIngredients", $queryString);
+
+        } else if ($queryString['type'] == 'bulk') {
+            // https://api.spoonacular.com/recipes/informationBulk?ids=${recipeIds}&apiKey=${PRIVATE_SPOONACULAR_KEY}
+
+            return $this->transport->request("recipes/informationBulk", $queryString);    
         } else {
             // https://api.spoonacular.com/recipes/complexSearch?query=${title}&number=20&addRecipeInformation=true&apiKey=${PRIVATE_SPOONACULAR_KEY}
 
