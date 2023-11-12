@@ -89,15 +89,53 @@ class RecipeController extends Controller
         }
     }
 
-    private function parseRecipesBookmarkState($recipes, $userData) {        
-        foreach ($recipes as $recipe) {            
-            $recipe = $this->parseRecipeBookmarkState($recipe, $userData);
+    private function parseRecipesBookmarkState($recipes, $userData)
+    {
+        // Get ids from recipes as comma-separated string with implode
+        $ids = implode(',', array_map(function ($recipe) {
+            return $recipe['id'];
+        }, $recipes->toArray()));
+
+        $db = $this->supabaseService->initializeDatabase('favourites', 'id');
+        $query = [
+            'select' => '*',
+            'from'   => 'favourites',
+            'where'  => [
+                'recipe_id' => 'in.(' . $ids . ')',
+            ],
+        ];
+
+        $result = $db->createCustomQuery($query)->getResult();
+
+        if ($userData !== null && $userData->aud === 'authenticated') {
+            // Convert $result to a map for faster lookup
+            $favouritesMap = [];
+            foreach ($result as $data) {
+                $favouritesMap[$data->recipe_id][$data->user_id] = true;
+            }
+
+            // Use array_reduce to calculate total likes
+            $totalLikesMap = array_reduce($result, function ($carry, $data) {
+                $carry[$data->recipe_id] = ($carry[$data->recipe_id] ?? 0) + 1;
+                return $carry;
+            }, []);
+
+            foreach ($recipes as &$recipe) {
+                // Check if the recipe is bookmarked
+                if (isset($favouritesMap[$recipe->id][$userData->id])) {
+                    $recipe->bookmarked = true;
+                }
+
+                // Set total likes for the recipe
+                $recipe->totalLikes = $totalLikesMap[$recipe->id] ?? 0;
+            }
         }
 
         return $recipes;
     }
 
-    private function parseRecipeBookmarkState($recipe, $userData) {
+    private function parseRecipeBookmarkState($recipe, $userData)
+    {
         $db = $this->supabaseService->initializeDatabase('favourites', 'id');
         $query = [
             'select' => '*',
@@ -108,11 +146,11 @@ class RecipeController extends Controller
             ]
         ];
 
-        $result = $db->createCustomQuery($query)->getResult();                    
+        $result = $db->createCustomQuery($query)->getResult();
         if ($userData !== null && $userData->aud === 'authenticated') {
             foreach ($result as $data) {
                 if ($userData->id === $data->user_id) {
-                    $recipe->bookmarked = true;    
+                    $recipe->bookmarked = true;
                     break;
                 }
             }
@@ -159,7 +197,7 @@ class RecipeController extends Controller
             $auth = $this->supabaseService->createAuth();
             $bearerToken = $request->bearerToken();
             $userData = $bearerToken === 'undefined' ? null : $auth->getUser($bearerToken);
-                
+
             if ($userData === null || $userData->aud !== 'authenticated') {
                 return response()->json([
                     'type' => 'failure',
@@ -174,7 +212,7 @@ class RecipeController extends Controller
                 'select' => '*',
                 'from'   => 'favourites',
                 'where' =>
-                [                    
+                [
                     'user_id' => 'eq.' . $userData->id,
                     'recipe_id' => 'eq.' . $recipeId
                 ]
@@ -194,7 +232,7 @@ class RecipeController extends Controller
             $recipe->id = $recipeId;
             $recipe->bookmarked = false;
             $recipe->totalLikes = 0;
-            
+
             return response()->json([
                 'type' => 'success',
                 'data' => [
